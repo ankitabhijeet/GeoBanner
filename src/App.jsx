@@ -24,9 +24,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-const VISIBILITY_RADIUS = 50; // Show banners within 50 meters
+const VISIBILITY_RADIUS = 50; 
 
-// Haversine distance for filtering what is nearby horizontally
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3;
   const toRad = (deg) => (deg * Math.PI) / 180;
@@ -36,17 +35,10 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))); 
 };
 
-// Convert GPS and Altitude into 3D space coordinates (X, Y, Z in meters)
 const getRelativePosition = (userLat, userLng, userAlt, targetLat, targetLng, targetAlt) => {
-  // X = Left/Right (Longitude difference)
   const dx = (targetLng - userLng) * 111320 * Math.cos(userLat * Math.PI / 180);
-  
-  // Y = Up/Down (Altitude difference)
   const dy = (targetAlt || 0) - (userAlt || 0); 
-  
-  // Z = Forward/Backward (Latitude difference, WebXR uses negative Z for forward)
   const dz = (userLat - targetLat) * 111320; 
-  
   return [dx, dy, dz]; 
 };
 
@@ -54,16 +46,14 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   
-  // Navigation State
-  const [activeTab, setActiveTab] = useState('capture'); // 'capture' | 'explore'
-  const [exploreMode, setExploreMode] = useState('map'); // 'map' | 'ar'
+  const [activeTab, setActiveTab] = useState('capture'); 
+  const [exploreMode, setExploreMode] = useState('map'); 
   
   const [location, setLocation] = useState(null);
   const [banners, setBanners] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const webcamRef = useRef(null);
 
-  // 1. Authentication Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -72,7 +62,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. GPS & Altitude Tracker
   useEffect(() => {
     if (!user) return;
     if (!('geolocation' in navigator)) return;
@@ -82,7 +71,7 @@ export default function App() {
         setLocation({ 
           lat: pos.coords.latitude, 
           lng: pos.coords.longitude,
-          alt: pos.coords.altitude || 0 // Default to 0 if sensor is unavailable
+          alt: pos.coords.altitude || 0 
         });
       },
       (err) => console.error("GPS Error:", err),
@@ -91,7 +80,6 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [user]);
 
-  // 3. Firestore Realtime Sync
   useEffect(() => {
     if (!user) return;
     const unsubscribe = onSnapshot(collection(db, "geoBanners"), (snapshot) => {
@@ -111,7 +99,6 @@ export default function App() {
 
   const handleLogout = async () => signOut(auth);
 
-  // 4. Anchor Banner to Current Location & Altitude
   const captureAndAnchor = useCallback(async () => {
     if (!location || !user) return;
     setIsProcessing(true);
@@ -122,10 +109,9 @@ export default function App() {
         name: user.displayName || "Unknown Explorer", 
         lat: location.lat,
         lng: location.lng,
-        alt: location.alt, // Saves altitude to the database
+        alt: location.alt, 
         timestamp: new Date().toISOString()
       });
-      // Switch to map automatically to view the newly dropped banner
       setActiveTab('explore');
       setExploreMode('map');
     } catch (error) {
@@ -135,7 +121,6 @@ export default function App() {
     }
   }, [location, user]);
 
-  // Only render banners that are within the 50m radius
   const visibleBanners = banners.filter(b => {
     if (!location) return false;
     return getDistance(location.lat, location.lng, b.lat, b.lng) <= VISIBILITY_RADIUS;
@@ -143,13 +128,14 @@ export default function App() {
 
   // --- UI RENDERERS ---
 
-  if (authLoading) return <div className="h-screen bg-black text-white flex items-center justify-center font-bold">Loading GeoBanner...</div>;
+  // FIX: Using h-[100dvh] instead of h-screen, and overflow-hidden to prevent scrolling
+  if (authLoading) return <div className="h-[100dvh] w-full overflow-hidden bg-black text-white flex items-center justify-center font-bold">Loading GeoBanner...</div>;
 
   if (!user) {
     return (
-      <div className="h-screen bg-black text-white flex flex-col items-center justify-center p-6">
+      <div className="h-[100dvh] w-full overflow-hidden bg-black text-white flex flex-col items-center justify-center p-6">
         <h1 className="text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">GeoBanner</h1>
-        <button onClick={handleLogin} className="w-full max-w-sm bg-white text-black font-bold py-4 rounded-full hover:bg-gray-200 transition">
+        <button onClick={handleLogin} className="w-full max-w-sm bg-[#1a1a1a] border border-gray-800 text-white font-bold py-4 rounded-xl hover:bg-gray-800 transition">
           Sign in with Google
         </button>
       </div>
@@ -158,7 +144,7 @@ export default function App() {
 
   if (!location) {
     return (
-      <div className="h-screen bg-black flex flex-col items-center justify-center space-y-4">
+      <div className="h-[100dvh] w-full overflow-hidden bg-black flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="text-white font-semibold">Acquiring 3D GPS Lock...</p>
         <p className="text-gray-500 text-sm">Mapping Latitude, Longitude, and Altitude.</p>
@@ -167,10 +153,10 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen w-full bg-gray-100 flex flex-col relative">
+    <div className="h-[100dvh] w-full overflow-hidden bg-gray-100 flex flex-col relative">
       
       {/* Top HUD */}
-      <div className="absolute top-0 w-full p-4 z-20 flex justify-between pointer-events-none">
+      <div className="absolute top-0 w-full p-4 z-20 flex justify-between pointer-events-none pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="bg-black/70 backdrop-blur text-white px-4 py-2 rounded-full text-sm font-semibold shadow pointer-events-auto">
           {user.displayName}
         </div>
@@ -193,14 +179,13 @@ export default function App() {
               className="w-full h-full object-cover"
             />
             
-            {/* HUD Overlay for Camera */}
-            <div className="absolute top-20 w-full flex justify-center pointer-events-none">
+            <div className="absolute top-24 w-full flex justify-center pointer-events-none">
               <span className="bg-black/50 text-green-400 px-3 py-1 rounded-full text-xs font-mono backdrop-blur">
                 Alt: {Math.round(location.alt)}m
               </span>
             </div>
 
-            <div className="absolute bottom-24 w-full flex justify-center z-10">
+            <div className="absolute bottom-8 w-full flex justify-center z-10 pb-[env(safe-area-inset-bottom)]">
               <button 
                 onClick={captureAndAnchor}
                 disabled={isProcessing}
@@ -216,8 +201,7 @@ export default function App() {
         {activeTab === 'explore' && (
           <div className="h-full w-full relative">
             
-            {/* Map / AR Toggle Switch */}
-            <div className="absolute top-20 w-full flex justify-center z-20 pointer-events-none">
+            <div className="absolute top-24 w-full flex justify-center z-20 pointer-events-none">
               <div className="bg-white p-1 rounded-full shadow-lg flex pointer-events-auto">
                 <button 
                   onClick={() => setExploreMode('map')} 
@@ -234,7 +218,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* 2D Map View */}
             {exploreMode === 'map' && (
               <MapContainer center={[location.lat, location.lng]} zoom={18} zoomControl={false} style={{ height: '100%', width: '100%' }}>
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
@@ -252,11 +235,10 @@ export default function App() {
               </MapContainer>
             )}
 
-            {/* 3D AR View */}
             {exploreMode === 'ar' && (
               <div className="h-full w-full bg-gray-900 flex flex-col items-center justify-center relative">
                 
-                <div className="absolute bottom-32 z-30">
+                <div className="absolute bottom-12 z-30 pb-[env(safe-area-inset-bottom)]">
                   <ARButton className="bg-blue-600 text-white px-8 py-4 rounded-full font-bold shadow-xl hover:bg-blue-700 transition" />
                 </div>
                 
@@ -296,8 +278,8 @@ export default function App() {
         )}
       </div>
 
-      {/* Bottom Navigation Bar */}
-      <div className="bg-white border-t border-gray-200 flex justify-around items-center p-4 z-20 pb-safe">
+      {/* Bottom Navigation Bar - FIX: Replaced pb-safe with standard CSS environment variables */}
+      <div className="bg-white border-t border-gray-200 flex justify-around items-center p-4 z-20 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <button 
           onClick={() => setActiveTab('capture')} 
           className={`flex flex-col items-center gap-1 transition ${activeTab === 'capture' ? 'text-blue-600 scale-110' : 'text-gray-400 hover:text-gray-600'}`}
